@@ -1,3 +1,7 @@
 ipykernel
 pandas
 numpy
+scikit-learn
+lightgbm
+pickle
+sentence-transformers
