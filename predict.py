@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -18,8 +19,6 @@ TEXT_EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
 IMAGE_SIZE = (128, 128)
 
 # --- 1. Preprocessing and Feature Generation Functions ---
-
-# (These functions are copied from train_lgbm.py for consistency)
 
 def load_and_preprocess_data(data_path, image_dir):
     print(f"Loading and preprocessing data from {data_path}...")
@@ -78,6 +77,17 @@ def generate_image_embeddings(df):
 
 def run_prediction(input_csv, image_dir, output_csv):
     """Runs the full prediction pipeline on a given CSV file."""
+    # --- Pre-flight checks ---
+    if not os.path.exists(input_csv):
+        print(f"\nFATAL ERROR: Input data not found at '{input_csv}'")
+        sys.exit(1)
+        
+    if not os.path.exists(image_dir) or not os.listdir(image_dir):
+        print(f"\nFATAL ERROR: Images not found in '{image_dir}'")
+        print("If running for the official test set, please run 'python main.py download test'.")
+        print("If running on custom data, please ensure the image directory is correct and contains images.")
+        sys.exit(1)
+
     # Load and preprocess data
     df_test = load_and_preprocess_data(input_csv, image_dir)
     
@@ -95,8 +105,9 @@ def run_prediction(input_csv, image_dir, output_csv):
     for i in range(5):
         model_path = os.path.join(ARTIFACTS_DIR, f'lgbm_model_fold_{i+1}.pkl')
         if not os.path.exists(model_path):
-            print(f"Error: Trained model not found at {model_path}. Please run the training script first.")
-            return
+            print(f"\nFATAL ERROR: Trained model not found at {model_path}. Please run the training script first:")
+            print("    python main.py train")
+            sys.exit(1)
         print(f"Loading model for fold {i+1}...")
         models.append(joblib.load(model_path))
     
@@ -115,5 +126,4 @@ def run_prediction(input_csv, image_dir, output_csv):
     print("Submission file created successfully!")
 
 if __name__ == '__main__':
-    # This runs the prediction for the official competition test set
     run_prediction(input_csv=TEST_CSV, image_dir=TEST_IMAGES_DIR, output_csv=SUBMISSION_PATH)

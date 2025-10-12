@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -99,6 +100,18 @@ def get_image_embeddings(df):
 
 def run_training():
     """Main logic for the training pipeline."""
+    # --- Pre-flight checks ---
+    if not os.path.exists(TRAIN_CSV):
+        print(f"\nFATAL ERROR: Training data not found at '{TRAIN_CSV}'")
+        print("Please ensure the file exists before running training.")
+        sys.exit(1)
+        
+    if not os.path.exists(TRAIN_IMAGES_DIR) or not os.listdir(TRAIN_IMAGES_DIR):
+        print(f"\nFATAL ERROR: Training images not found in '{TRAIN_IMAGES_DIR}'")
+        print("Please run the following command to download the images first:")
+        print("    python main.py download train")
+        sys.exit(1)
+
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     
     # Load and process data
