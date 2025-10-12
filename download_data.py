@@ -1,4 +1,3 @@
-
 import pandas as pd
 import os
 import sys
@@ -29,13 +28,21 @@ def download_for_set(csv_path, image_dir):
     print(f"Starting download for {len(df)} images to '{image_dir}'...")
     os.makedirs(image_dir, exist_ok=True)
     
-    # The download function expects a list of URLs and the destination folder
     image_urls = df['image_link'].tolist()
     download_images(image_urls, image_dir)
     print(f"Download process complete for {image_dir}.")
 
-def main():
-    """Main function to parse arguments and trigger downloads."""
+def run_download(dataset_type):
+    """Main logic for downloading datasets."""
+    if dataset_type == 'train' or dataset_type == 'all':
+        print("--- Processing Training Set ---")
+        download_for_set(TRAIN_CSV, TRAIN_IMAGES_DIR)
+        
+    if dataset_type == 'test' or dataset_type == 'all':
+        print("\n--- Processing Test Set ---")
+        download_for_set(TEST_CSV, TEST_IMAGES_DIR)
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Download images for the ML Challenge.",
         formatter_class=argparse.RawTextHelpFormatter
@@ -46,14 +53,4 @@ def main():
         help="Which dataset to download images for.\n'train': Download only training images.\n'test':  Download only test images.\n'all':   Download both training and test images."
     )
     args = parser.parse_args()
-
-    if args.dataset == 'train' or args.dataset == 'all':
-        print("--- Processing Training Set ---")
-        download_for_set(TRAIN_CSV, TRAIN_IMAGES_DIR)
-        
-    if args.dataset == 'test' or args.dataset == 'all':
-        print("\n--- Processing Test Set ---")
-        download_for_set(TEST_CSV, TEST_IMAGES_DIR)
-
-if __name__ == '__main__':
-    main()
+    run_download(args.dataset)
