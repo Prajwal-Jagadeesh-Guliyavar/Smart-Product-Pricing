@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -98,9 +97,8 @@ def get_image_embeddings(df):
     np.save(IMAGE_EMBEDDINGS_FILE, embeddings)
     return embeddings
 
-# --- 3. Main Training Execution ---
-
-if __name__ == '__main__':
+def run_training():
+    """Main logic for the training pipeline."""
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     
     # Load and process data
@@ -139,3 +137,6 @@ if __name__ == '__main__':
 
     print(f"\nAverage RMSE across all folds: {np.mean(oof_scores)}")
     print("Training complete. All models saved to artifacts directory.")
+
+if __name__ == '__main__':
+    run_training()
