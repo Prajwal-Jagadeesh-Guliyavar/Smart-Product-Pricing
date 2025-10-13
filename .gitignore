@@ -1,0 +1,23 @@
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Downloaded image datasets
+student_resource/train_images/
+student_resource/test_images/
+
+# Generated artifacts (models, embeddings, plots)
+artifacts/
+
+# Obsolete files and backups
+obsolete_files/
+
+# Output files
+*.csv
+
+# Ignore the .DS_Store file on macOS
+.DS_Store
