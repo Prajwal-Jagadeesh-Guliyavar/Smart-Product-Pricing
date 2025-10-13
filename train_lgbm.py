@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -37,7 +36,7 @@ def load_and_preprocess_data(data_path):
     df['log_price'] = np.log1p(df['price'])
 
     def extract_ipq(text):
-        patterns = [r'pack of (\d+)', r'(\d+)\s*per case', r'\((\d+)\s*count\)', r'pack\s*(\d+)', r'(\d+)\s*pack']
+        patterns = [r'pack of (\d+)', r'(\d+)\s*per case', r'\((\d+)\s*count\)', r'pack\s*\((\d+)\)', r'(\d+)\s*pack']
         text_lower = text.lower()
         for pattern in patterns:
             match = re.search(pattern, text_lower)
@@ -98,6 +97,23 @@ def get_image_embeddings(df):
     np.save(IMAGE_EMBEDDINGS_FILE, embeddings)
     return embeddings
 
+# --- 3. Custom Metric and Training Execution ---
+
+def lgbm_smape(y_true, y_pred):
+    """Custom SMAPE evaluation metric for LightGBM."""
+    # We are predicting log_price, so we need to convert back to original scale
+    y_true_orig = np.expm1(y_true)
+    y_pred_orig = np.expm1(y_pred)
+    
+    numerator = np.abs(y_pred_orig - y_true_orig)
+    denominator = (np.abs(y_true_orig) + np.abs(y_pred_orig)) / 2
+    
+    # Handle the case where both true and predicted are zero
+    # We define 0/0 as 0 for SMAPE
+    ratio = np.where(denominator == 0, 0, numerator / denominator)
+    
+    return 'SMAPE', np.mean(ratio) * 100, False # name, value, is_higher_better
+
 def run_training():
     """Main logic for the training pipeline."""
     # --- Pre-flight checks ---
@@ -114,23 +130,18 @@ def run_training():
 
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     
-    # Load and process data
     df = load_and_preprocess_data(TRAIN_CSV)
-    
-    # Get features
     text_embeddings = get_text_embeddings(df)
     image_embeddings = get_image_embeddings(df)
     ipq_features = df['ipq'].values.reshape(-1, 1)
     
-    # Combine features
     X = np.concatenate([text_embeddings, image_embeddings, ipq_features], axis=1)
     y = df['log_price'].values
     print(f"\nFinal feature matrix created with shape: {X.shape}")
 
-    # Cross-validation training
     N_SPLITS = 5
     kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=42)
-    oof_scores = []
+    oof_smape_scores = []
 
     print(f"Starting {N_SPLITS}-fold cross-validation...\n")
     for fold, (train_index, val_index) in enumerate(kf.split(X, y)):
@@ -138,17 +149,18 @@ def run_training():
         X_train, X_val = X[train_index], X[val_index]
         y_train, y_val = y[train_index], y[val_index]
         
-        lgbm = lgb.LGBMRegressor(random_state=42, n_estimators=1000, learning_rate=0.05, num_leaves=31, n_jobs=-1)
-        lgbm.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric='rmse', callbacks=[lgb.early_stopping(100, verbose=False)])
+        lgbm = lgb.LGBMRegressor(random_state=42, n_estimators=2000, learning_rate=0.02, num_leaves=31, n_jobs=-1)
+        lgbm.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric=[lgbm_smape, 'rmse'], callbacks=[lgb.early_stopping(100, verbose=100)])
         
         val_preds = lgbm.predict(X_val)
-        rmse = np.sqrt(mean_squared_error(y_val, val_preds))
-        oof_scores.append(rmse)
-        print(f"Fold {fold+1} RMSE: {rmse}")
+        # Use the custom function to get the final score for the fold
+        fold_smape_name, fold_smape_val, _ = lgbm_smape(y_val, val_preds)
+        oof_smape_scores.append(fold_smape_val)
+        print(f"Fold {fold+1} SMAPE: {fold_smape_val:.4f}%")
         
         joblib.dump(lgbm, os.path.join(ARTIFACTS_DIR, f'lgbm_model_fold_{fold+1}.pkl'))
 
-    print(f"\nAverage RMSE across all folds: {np.mean(oof_scores)}")
+    print(f"\nAverage SMAPE across all folds: {np.mean(oof_smape_scores):.4f}%")
     print("Training complete. All models saved to artifacts directory.")
 
 if __name__ == '__main__':

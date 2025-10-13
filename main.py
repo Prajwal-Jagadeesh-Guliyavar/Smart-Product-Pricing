@@ -1,20 +1,23 @@
-
 import sys
 import os
+import pandas as pd
 
 # Import the refactored functions from our scripts
 import download_data
 import train_lgbm
 import predict
+import perform_eda
 
 def display_menu():
     """Prints the main menu to the console."""
     print("\n--- Smart Product Pricing Challenge Menu ---")
-    print("1. Download Datasets")
-    print("2. Train Model")
-    print("3. Generate Official Submission")
-    print("4. Predict on Custom Data")
-    print("5. Exit")
+    print("1. Perform Data EDA")
+    print("2. Download Datasets")
+    print("3. Train Model")
+    print("4. Generate Official Submission")
+    print("5. Predict on Custom Data")
+    print("6. View Project README")
+    print("7. Exit")
     print("------------------------------------------")
 
 def get_user_choice(prompt, valid_choices):
@@ -26,25 +29,41 @@ def get_user_choice(prompt, valid_choices):
         else:
             print(f"Invalid input. Please enter one of {valid_choices}.")
 
+def validate_custom_csv(file_path):
+    """Checks if the custom CSV has the required columns."""
+    try:
+        df = pd.read_csv(file_path, nrows=5) # Read only a few rows for efficiency
+        required_columns = {'sample_id', 'catalog_content', 'image_link'}
+        actual_columns = set(df.columns)
+        if required_columns.issubset(actual_columns):
+            return True
+        else:
+            missing = required_columns - actual_columns
+            print(f"\nERROR: The CSV file is missing the following required columns: {list(missing)}")
+            return False
+    except Exception as e:
+        print(f"\nERROR: Could not read or process the CSV file. Details: {e}")
+        return False
+
 def main():
     """Main function to run the interactive menu."""
     while True:
         display_menu()
-        main_choice = get_user_choice("Enter your choice", ['1', '2', '3', '4', '5'])
+        main_choice = get_user_choice("Enter your choice", ['1', '2', '3', '4', '5', '6', '7'])
 
-        # --- 1. Download Datasets ---
         if main_choice == '1':
+            perform_eda.run_eda()
+
+        elif main_choice == '2':
             print("\n--- Download Menu ---")
             download_choice = get_user_choice("Download [train], [test], or [all]?", ['train', 'test', 'all'])
             download_data.run_download(download_choice)
 
-        # --- 2. Train Model ---
-        elif main_choice == '2':
+        elif main_choice == '3':
             print("\n--- Train Model ---")
             train_lgbm.run_training()
 
-        # --- 3. Generate Official Submission ---
-        elif main_choice == '3':
+        elif main_choice == '4':
             print("\n--- Generate Official Submission ---")
             predict.run_prediction(
                 input_csv=predict.TEST_CSV,
@@ -52,21 +71,15 @@ def main():
                 output_csv=predict.SUBMISSION_PATH
             )
 
-        # --- 4. Predict on Custom Data ---
-        elif main_choice == '4':
+        elif main_choice == '5':
             print("\n--- Predict on Custom Data ---")
-            print("INFO: Your custom CSV file must have the following columns:")
-            print("  - sample_id: A unique identifier for each item.")
-            print("  - catalog_content: The text description of the product.")
-            print("  - image_link: A public URL for the product image.")
-            print("\nIMPORTANT: The image files must be present in the specified image directory.")
-            print("The name of each image file must match the end of its corresponding 'image_link' URL.")
-            print("For example, for URL 'https://a.com/image123.jpg', the file must be named 'image123.jpg'.")
-            
             while True:
                 input_csv = input("\nEnter the full path to your custom CSV file: ").strip()
                 if os.path.exists(input_csv):
-                    break
+                    if validate_custom_csv(input_csv):
+                        break # File exists and is valid
+                    else:
+                        print("Please provide a file with the correct format.")
                 else:
                     print(f"Error: File not found at '{input_csv}'. Please try again.")
             
@@ -79,18 +92,18 @@ def main():
 
             output_csv = input("Enter the desired output file path (default: custom_predictions.csv): ").strip() or "custom_predictions.csv"
 
-            print(f"\nReading data from: {input_csv}")
-            print(f"Looking for images in: {image_dir}")
-            print(f"Saving results to: {output_csv}\n")
+            print(f"\nRunning prediction on custom data...")
+            predict.run_prediction(input_csv=input_csv, image_dir=image_dir, output_csv=output_csv)
 
-            predict.run_prediction(
-                input_csv=input_csv,
-                image_dir=image_dir,
-                output_csv=output_csv
-            )
+        elif main_choice == '6':
+            print("\n--- Project README ---")
+            if os.path.exists('README.md'):
+                with open('README.md', 'r') as f:
+                    print(f.read())
+            else:
+                print("ERROR: README.md not found.")
 
-        # --- 5. Exit ---
-        elif main_choice == '5':
+        elif main_choice == '7':
             print("Exiting.")
             sys.exit(0)
 
