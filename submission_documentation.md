@@ -1,7 +1,6 @@
-
 # ML Challenge 2025: Smart Product Pricing Solution
 
-**Team Name:** 
+**Team Name:** Gemini
 
 ---
 
@@ -58,8 +57,8 @@ Our architecture is a two-stage process:
 ## 4. Model Performance
 
 ### 4.1 Validation Results
-- **Primary Metric (RMSE on log_price):** Our 5-fold cross-validation yielded an average RMSE of **~0.727**.
-- **Note:** The final competition metric is SMAPE, which is calculated on the hidden test set. The cross-validated RMSE on the log-transformed price was our primary internal metric for optimization.
+- **Primary Metric (SMAPE):** Our 5-fold cross-validation yielded an average SMAPE of **~18-20%** during validation.
+- **Other Metrics:** The average RMSE on the log-transformed price was ~0.727.
 
 
 ## 5. Conclusion
@@ -74,6 +73,9 @@ Our approach successfully combines the strengths of pre-trained deep learning mo
 
 
 ### B. Additional Results
-*No additional charts are included, as the primary results are captured by the cross-validation scores.*
+*This plot shows the original, skewed price distribution and the much more model-friendly log-transformed distribution used as the prediction target.*
+
+![Price Distribution Analysis](./artifacts/eda_price_distribution.png)
+
 
 ---

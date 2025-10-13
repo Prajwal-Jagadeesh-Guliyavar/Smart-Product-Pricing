@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -88,19 +87,14 @@ def run_prediction(input_csv, image_dir, output_csv):
         print("If running on custom data, please ensure the image directory is correct and contains images.")
         sys.exit(1)
 
-    # Load and preprocess data
     df_test = load_and_preprocess_data(input_csv, image_dir)
-    
-    # Generate features
     test_text_embeddings = generate_text_embeddings(df_test)
     test_image_embeddings = generate_image_embeddings(df_test)
     test_ipq_features = df_test['ipq'].values.reshape(-1, 1)
     
-    # Combine features
     X_test = np.concatenate([test_text_embeddings, test_image_embeddings, test_ipq_features], axis=1)
     print(f"Final test feature matrix created with shape: {X_test.shape}")
     
-    # Load models
     models = []
     for i in range(5):
         model_path = os.path.join(ARTIFACTS_DIR, f'lgbm_model_fold_{i+1}.pkl')
@@ -111,17 +105,23 @@ def run_prediction(input_csv, image_dir, output_csv):
         print(f"Loading model for fold {i+1}...")
         models.append(joblib.load(model_path))
     
-    # Predict and average
     print("Generating predictions from the 5 models...")
     all_predictions = np.array([model.predict(X_test) for model in models])
     avg_log_predictions = np.mean(all_predictions, axis=0)
     
-    # Post-process and save
     final_predictions = np.expm1(avg_log_predictions)
     final_predictions[final_predictions < 0] = 0
     
-    print(f"Creating submission file at {output_csv}...")
     submission_df = pd.DataFrame({'sample_id': df_test['sample_id'], 'price': final_predictions})
+
+    # --- Final Validation Check ---
+    if len(submission_df) != len(df_test):
+        print(f"\nFATAL ERROR: Output length ({len(submission_df)}) does not match input length ({len(df_test)}).")
+        print("Aborting file generation.")
+        sys.exit(1)
+
+    print(f"\nSuccessfully generated {len(submission_df)} predictions.")
+    print(f"Creating submission file at {output_csv}...")
     submission_df.to_csv(output_csv, index=False)
     print("Submission file created successfully!")
 
