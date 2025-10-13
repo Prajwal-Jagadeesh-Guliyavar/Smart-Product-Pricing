@@ -57,7 +57,7 @@ def get_text_embeddings(df):
     if os.path.exists(TEXT_EMBEDDINGS_FILE):
         print(f"Loading cached text embeddings from {TEXT_EMBEDDINGS_FILE}...")
         return np.load(TEXT_EMBEDDINGS_FILE)
-    
+
     print("Generating text embeddings...")
     model = SentenceTransformer(TEXT_EMBEDDING_MODEL)
     embeddings = model.encode(df['cleaned_text'].tolist(), show_progress_bar=True, batch_size=128)
@@ -92,7 +92,7 @@ def get_image_embeddings(df):
 
     image_path_ds = tf.data.Dataset.from_tensor_slices(df['image_path'].tolist())
     image_ds = image_path_ds.map(load_image_wrapper, num_parallel_calls=tf.data.AUTOTUNE).batch(128).prefetch(tf.data.AUTOTUNE)
-    
+
     embeddings = feature_extractor.predict(image_ds, verbose=1)
     np.save(IMAGE_EMBEDDINGS_FILE, embeddings)
     return embeddings
@@ -104,14 +104,14 @@ def lgbm_smape(y_true, y_pred):
     # We are predicting log_price, so we need to convert back to original scale
     y_true_orig = np.expm1(y_true)
     y_pred_orig = np.expm1(y_pred)
-    
+
     numerator = np.abs(y_pred_orig - y_true_orig)
     denominator = (np.abs(y_true_orig) + np.abs(y_pred_orig)) / 2
-    
+
     # Handle the case where both true and predicted are zero
     # We define 0/0 as 0 for SMAPE
     ratio = np.where(denominator == 0, 0, numerator / denominator)
-    
+
     return 'SMAPE', np.mean(ratio) * 100, False # name, value, is_higher_better
 
 def run_training():
@@ -121,7 +121,7 @@ def run_training():
         print(f"\nFATAL ERROR: Training data not found at '{TRAIN_CSV}'")
         print("Please ensure the file exists before running training.")
         sys.exit(1)
-        
+
     if not os.path.exists(TRAIN_IMAGES_DIR) or not os.listdir(TRAIN_IMAGES_DIR):
         print(f"\nFATAL ERROR: Training images not found in '{TRAIN_IMAGES_DIR}'")
         print("Please run the following command to download the images first:")
@@ -129,12 +129,12 @@ def run_training():
         sys.exit(1)
 
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
-    
+
     df = load_and_preprocess_data(TRAIN_CSV)
     text_embeddings = get_text_embeddings(df)
     image_embeddings = get_image_embeddings(df)
     ipq_features = df['ipq'].values.reshape(-1, 1)
-    
+
     X = np.concatenate([text_embeddings, image_embeddings, ipq_features], axis=1)
     y = df['log_price'].values
     print(f"\nFinal feature matrix created with shape: {X.shape}")
@@ -148,16 +148,16 @@ def run_training():
         print(f"--- Fold {fold+1}/{N_SPLITS} ---")
         X_train, X_val = X[train_index], X[val_index]
         y_train, y_val = y[train_index], y[val_index]
-        
+
         lgbm = lgb.LGBMRegressor(random_state=42, n_estimators=2000, learning_rate=0.02, num_leaves=31, n_jobs=-1)
         lgbm.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric=[lgbm_smape, 'rmse'], callbacks=[lgb.early_stopping(100, verbose=100)])
-        
+
         val_preds = lgbm.predict(X_val)
         # Use the custom function to get the final score for the fold
         fold_smape_name, fold_smape_val, _ = lgbm_smape(y_val, val_preds)
         oof_smape_scores.append(fold_smape_val)
         print(f"Fold {fold+1} SMAPE: {fold_smape_val:.4f}%")
-        
+
         joblib.dump(lgbm, os.path.join(ARTIFACTS_DIR, f'lgbm_model_fold_{fold+1}.pkl'))
 
     print(f"\nAverage SMAPE across all folds: {np.mean(oof_smape_scores):.4f}%")

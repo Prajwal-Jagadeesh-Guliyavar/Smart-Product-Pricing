@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,12 +18,6 @@ def run_eda():
     if os.path.exists(EDA_PLOT_PATH):
         print(f"EDA plot already exists at '{EDA_PLOT_PATH}'.")
         print("Please open the image file to view the analysis.")
-        return
-
-    # --- Pre-flight check for data ---
-    if not os.path.exists(TRAIN_CSV):
-        print(f"\nFATAL ERROR: Training data not found at '{TRAIN_CSV}'")
-        print("Cannot perform EDA. Please ensure the dataset is in the correct location.")
         return
 
     print("Generating new EDA plot...")
@@ -48,7 +41,6 @@ def run_eda():
     fig.suptitle('Price Distribution Analysis', fontsize=20)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     
-    # Save the figure
     plt.savefig(EDA_PLOT_PATH)
     print(f"EDA plot saved successfully to '{EDA_PLOT_PATH}'.")
 

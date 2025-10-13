@@ -22,7 +22,7 @@ IMAGE_SIZE = (128, 128)
 def load_and_preprocess_data(data_path, image_dir):
     print(f"Loading and preprocessing data from {data_path}...")
     df = pd.read_csv(data_path)
-    
+
     def extract_ipq(text):
         patterns = [r'pack of (\d+)', r'(\d+)\s*per case', r'\((\d+)\s*count\)', r'pack\s*\((\d+)\)', r'(\d+)\s*pack']
         text_lower = text.lower()
@@ -80,7 +80,7 @@ def run_prediction(input_csv, image_dir, output_csv):
     if not os.path.exists(input_csv):
         print(f"\nFATAL ERROR: Input data not found at '{input_csv}'")
         sys.exit(1)
-        
+
     if not os.path.exists(image_dir) or not os.listdir(image_dir):
         print(f"\nFATAL ERROR: Images not found in '{image_dir}'")
         print("If running for the official test set, please run 'python main.py download test'.")
@@ -91,10 +91,10 @@ def run_prediction(input_csv, image_dir, output_csv):
     test_text_embeddings = generate_text_embeddings(df_test)
     test_image_embeddings = generate_image_embeddings(df_test)
     test_ipq_features = df_test['ipq'].values.reshape(-1, 1)
-    
+
     X_test = np.concatenate([test_text_embeddings, test_image_embeddings, test_ipq_features], axis=1)
     print(f"Final test feature matrix created with shape: {X_test.shape}")
-    
+
     models = []
     for i in range(5):
         model_path = os.path.join(ARTIFACTS_DIR, f'lgbm_model_fold_{i+1}.pkl')
@@ -104,14 +104,14 @@ def run_prediction(input_csv, image_dir, output_csv):
             sys.exit(1)
         print(f"Loading model for fold {i+1}...")
         models.append(joblib.load(model_path))
-    
+
     print("Generating predictions from the 5 models...")
     all_predictions = np.array([model.predict(X_test) for model in models])
     avg_log_predictions = np.mean(all_predictions, axis=0)
-    
+
     final_predictions = np.expm1(avg_log_predictions)
     final_predictions[final_predictions < 0] = 0
-    
+
     submission_df = pd.DataFrame({'sample_id': df_test['sample_id'], 'price': final_predictions})
 
     # --- Final Validation Check ---
