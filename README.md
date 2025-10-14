@@ -1,4 +1,3 @@
-
 # Smart Product Pricing Challenge
 
 This project contains a complete, end-to-end machine learning pipeline to predict product prices based on their text descriptions and images.
@@ -51,7 +50,31 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Step 2: Run the Main Menu
+### Step 2: Download Large Artifact Files
+
+The trained models and pre-computed embeddings (`.npy` files) are too large for standard Git and are stored using Git LFS. You have two options to get these files:
+
+**Option A: Using Git LFS (Recommended)**
+
+If you have Git LFS installed, you can pull the files directly from the repository.
+
+```bash
+# Install Git LFS (if you haven't already)
+git lfs install
+
+# Pull the large files from the repository
+git lfs pull
+```
+
+**Option B: Direct Download**
+
+Alternatively, you can download a zip archive of the `artifacts` directory from the following link and place it in the project's root directory:
+
+- **Download Link:** [https://drive.google.com/file/d/1sZi25eiKNOzuwG0PXxz3FQuq0nlHBG_e/view?usp=sharing](https://drive.google.com/file/d/1sZi25eiKNOzuwG0PXxz3FQuq0nlHBG_e/view?usp=sharing)
+
+After downloading, unzip the file to create the `artifacts` folder.
+
+### Step 3: Run the Main Menu
 
 This project uses a user-friendly interactive menu. All actions (downloading, training, predicting) are performed through this single interface.
 
