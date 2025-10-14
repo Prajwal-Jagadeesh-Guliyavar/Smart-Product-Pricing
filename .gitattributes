@@ -1,2 +1,4 @@
 arifacts/. filter=lfs diff=lfs merge=lfs -text
 *.npy filter=lfs diff=lfs merge=lfs -text
+artifacts/text_embeddings.npy filter=lfs diff=lfs merge=lfs -text
+artifacts/image_embeddings.npy filter=lfs diff=lfs merge=lfs -text
