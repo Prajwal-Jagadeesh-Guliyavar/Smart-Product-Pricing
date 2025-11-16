@@ -1,67 +1,53 @@
-
 import sys
 import os
 import pandas as pd
-
-# Import the refactored functions from our scripts
-import download_data
-import train_lgbm
-import predict
-import perform_eda
-
-# --- Configuration ---
-TRAIN_CSV = 'student_resource/dataset/train.csv'
-TEST_CSV = 'student_resource/dataset/test.csv'
-TRAIN_IMAGES_DIR = 'student_resource/train_images'
-TEST_IMAGES_DIR = 'student_resource/test_images'
-ARTIFACTS_DIR = 'artifacts'
-
-# --- Helper & Validation Functions ---
+from processing import load_config
+from download_data import run_download
+from train_lgbm import run_training
+from predict import run_prediction
+from perform_eda import run_eda
 
 def get_user_choice(prompt, valid_choices):
+    """Gets a valid user choice from a prompt."""
     while True:
         choice = input(f"{prompt} {valid_choices}: ").lower().strip()
         if choice in valid_choices:
             return choice
-        else:
-            print(f"Invalid input. Please enter one of {valid_choices}.")
+        print(f"Invalid input. Please enter one of {valid_choices}.")
 
 def confirm_action(prompt):
+    """Gets a yes/no confirmation from the user."""
     return get_user_choice(prompt, ['y', 'n']) == 'y'
 
-def check_training_data():
-    if not os.path.exists(TRAIN_CSV):
-        print(f"\nWARNING: Training CSV not found at '{TRAIN_CSV}'.")
+def check_data(config, data_type='train'):
+    """Checks for the existence of the specified dataset (train or test)."""
+    paths = config['paths']
+    csv_path = paths[f'{data_type}_csv']
+    images_path = paths[f'{data_type}_images']
+
+    if not os.path.exists(csv_path):
+        print(f"\nWARNING: {data_type.capitalize()} CSV not found at '{csv_path}'.")
         return False
-    if not os.path.exists(TRAIN_IMAGES_DIR) or not os.listdir(TRAIN_IMAGES_DIR):
-        print(f"\nWARNING: Training images not found in '{TRAIN_IMAGES_DIR}'.")
+    if not os.path.exists(images_path) or not os.listdir(images_path):
+        print(f"\nWARNING: {data_type.capitalize()} images not found in '{images_path}'.")
         if confirm_action("Would you like to download them now? (y/n)"):
-            download_data.run_download('train')
-            return os.path.exists(TRAIN_IMAGES_DIR) # Re-check after download
+            run_download(data_type)
+            return os.path.exists(images_path)
         return False
     return True
 
-def check_test_data():
-    if not os.path.exists(TEST_CSV):
-        print(f"\nWARNING: Test CSV not found at '{TEST_CSV}'.")
-        return False
-    if not os.path.exists(TEST_IMAGES_DIR) or not os.listdir(TEST_IMAGES_DIR):
-        print(f"\nWARNING: Test images not found in '{TEST_IMAGES_DIR}'.")
-        if confirm_action("Would you like to download them now? (y/n)"):
-            download_data.run_download('test')
-            return os.path.exists(TEST_IMAGES_DIR) # Re-check after download
-        return False
-    return True
-
-def check_models_exist():
-    for i in range(5):
-        if not os.path.exists(os.path.join(ARTIFACTS_DIR, f'lgbm_model_fold_{i+1}.pkl')):
-            print("\nWARNING: Trained models not found.")
-            print("Please run the training process first (Option 3).")
+def check_models_exist(config):
+    """Checks if the trained model artifacts exist."""
+    paths = config['paths']
+    for i in range(config['training']['n_splits']):
+        model_path = os.path.join(paths['artifacts'], f'lgbm_model_fold_{i+1}.pkl')
+        if not os.path.exists(model_path):
+            print("\nWARNING: Trained models not found. Please run the training process first (Option 3).")
             return False
     return True
 
 def validate_custom_csv(file_path):
+    """Validates the columns of a custom CSV file."""
     try:
         df = pd.read_csv(file_path, nrows=5)
         required_columns = {'sample_id', 'catalog_content', 'image_link'}
@@ -74,69 +60,86 @@ def validate_custom_csv(file_path):
         print(f"\nERROR: Could not read the CSV file. Details: {e}")
         return False
 
-# --- Main Menu Logic ---
+def handle_eda(config):
+    """Handler for the EDA option."""
+    if check_data(config, 'train'):
+        run_eda()
+
+def handle_download(_):
+    """Handler for the download option."""
+    download_choice = get_user_choice("\nDownload [train], [test], or [all]?", ['train', 'test', 'all'])
+    run_download(download_choice)
+
+def handle_train(config):
+    """Handler for the training option."""
+    if check_data(config, 'train'):
+        print("\n--- Starting Model Training ---")
+        run_training()
+
+def handle_submission(config):
+    """Handler for generating the official submission."""
+    print("\n--- Generating Official Submission ---")
+    if check_data(config, 'test') and check_models_exist(config):
+        paths = config['paths']
+        run_prediction(paths['test_csv'], paths['test_images'], paths['submission'])
+
+def handle_custom_prediction(config):
+    """Handler for predicting on custom data."""
+    print("\n--- Predict on Custom Data ---")
+    if not check_models_exist(config):
+        return
+
+    while True:
+        input_csv = input("\nEnter the full path to your custom CSV file: ").strip()
+        if os.path.exists(input_csv) and validate_custom_csv(input_csv):
+            break
+        print("Invalid file or format. Please check the path and column names and try again.")
+
+    while True:
+        image_dir = input("Enter the full path to your custom images directory: ").strip()
+        if os.path.exists(image_dir):
+            break
+        print(f"Error: Directory not found at '{image_dir}'. Please try again.")
+
+    output_csv = input("Enter desired output file path (default: custom_predictions.csv): ").strip() or "custom_predictions.csv"
+    run_prediction(input_csv, image_dir, output_csv)
+
+def handle_readme(_):
+    """Handler for viewing the README."""
+    readme_path = os.path.join(os.path.dirname(__file__), '..', 'README.md')
+    if os.path.exists(readme_path):
+        with open(readme_path, 'r') as f:
+            print(f.read())
+    else:
+        print("ERROR: README.md not found.")
 
 def main():
+    """Main function to run the CLI menu."""
+    # Ensure the script is run from the project root
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.chdir(project_root)
+    
+    config = load_config()
+
+    menu_options = {
+        '1': ('Perform Data EDA', handle_eda),
+        '2': ('Download Datasets', handle_download),
+        '3': ('Train Model', handle_train),
+        '4': ('Generate Official Submission', handle_submission),
+        '5': ('Predict on Custom Data', handle_custom_prediction),
+        '6': ('View Project README', handle_readme),
+        '7': ('Exit', lambda _: sys.exit("Exiting."))
+    }
+
     while True:
         print("\n--- Smart Product Pricing Challenge Menu ---")
-        print("1. Perform Data EDA")
-        print("2. Download Datasets")
-        print("3. Train Model")
-        print("4. Generate Official Submission")
-        print("5. Predict on Custom Data")
-        print("6. View Project README")
-        print("7. Exit")
+        for key, (desc, _) in menu_options.items():
+            print(f"{key}. {desc}")
         print("------------------------------------------")
-        main_choice = get_user_choice("Enter your choice", ['1', '2', '3', '4', '5', '6', '7'])
-
-        if main_choice == '1':
-            if check_training_data():
-                perform_eda.run_eda()
-
-        elif main_choice == '2':
-            download_choice = get_user_choice("\nDownload [train], [test], or [all]?", ['train', 'test', 'all'])
-            download_data.run_download(download_choice)
-
-        elif main_choice == '3':
-            if check_training_data():
-                print("\n--- Starting Model Training ---")
-                train_lgbm.run_training()
-
-        elif main_choice == '4':
-            print("\n--- Generating Official Submission ---")
-            if check_test_data() and check_models_exist():
-                predict.run_prediction(predict.TEST_CSV, predict.TEST_IMAGES_DIR, predict.SUBMISSION_PATH)
-
-        elif main_choice == '5':
-            print("\n--- Predict on Custom Data ---")
-            if not check_models_exist():
-                continue
-
-            while True:
-                input_csv = input("\nEnter the full path to your custom CSV file: ").strip()
-                if os.path.exists(input_csv) and validate_custom_csv(input_csv):
-                    break
-                else:
-                    print("Invalid file or format. Please check the path and column names and try again.")
-
-            while True:
-                image_dir = input("Enter the full path to your custom images directory: ").strip()
-                if os.path.exists(image_dir):
-                    break
-                else:
-                    print(f"Error: Directory not found at '{image_dir}'. Please try again.")
-
-            output_csv = input("Enter desired output file path (default: custom_predictions.csv): ").strip() or "custom_predictions.csv"
-            predict.run_prediction(input_csv, image_dir, output_csv)
-
-        elif main_choice == '6':
-            if os.path.exists('README.md'):
-                with open('README.md', 'r') as f: print(f.read())
-            else: print("ERROR: README.md not found.")
-
-        elif main_choice == '7':
-            print("Exiting.")
-            sys.exit(0)
+        
+        choice = get_user_choice("Enter your choice", menu_options.keys())
+        _, handler = menu_options[choice]
+        handler(config)
 
 if __name__ == '__main__':
     main()
