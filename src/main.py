@@ -111,14 +111,14 @@ def main():
             print("\n--- Predict on Custom Data ---")
             if not check_models_exist():
                 continue
-            
+
             while True:
                 input_csv = input("\nEnter the full path to your custom CSV file: ").strip()
                 if os.path.exists(input_csv) and validate_custom_csv(input_csv):
                     break
                 else:
                     print("Invalid file or format. Please check the path and column names and try again.")
-            
+
             while True:
                 image_dir = input("Enter the full path to your custom images directory: ").strip()
                 if os.path.exists(image_dir):

@@ -26,7 +26,7 @@ IMAGE_SIZE = (128, 128)
 src_path = os.path.abspath('student_resource/src')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
-from challenge_utils import download_images
+from student_resource.src.challenge_utils import download_images
 
 # --- 2. Preprocessing and Feature Generation Functions ---
 
@@ -35,6 +35,7 @@ def load_and_preprocess_data(data_path):
     df = pd.read_csv(data_path)
     df['log_price'] = np.log1p(df['price'])
 
+    #extraction of the items per quantity
     def extract_ipq(text):
         patterns = [r'pack of (\d+)', r'(\d+)\s*per case', r'\((\d+)\s*count\)', r'pack\s*\((\d+)\)', r'(\d+)\s*pack']
         text_lower = text.lower()
@@ -44,6 +45,7 @@ def load_and_preprocess_data(data_path):
         return 1
     df['ipq'] = df['catalog_content'].apply(extract_ipq)
 
+    #to clean the metadata
     def clean_text(text):
         text = re.sub(r'item name:|bullet point \d+:|value:|unit:', '', text, flags=re.IGNORECASE)
         text = text.lower().replace('\n', ' ')
@@ -53,6 +55,7 @@ def load_and_preprocess_data(data_path):
     df['image_path'] = df['image_link'].apply(lambda url: os.path.join(TRAIN_IMAGES_DIR, Path(url).name))
     return df
 
+# to generate the embeddings
 def get_text_embeddings(df):
     if os.path.exists(TEXT_EMBEDDINGS_FILE):
         print(f"Loading cached text embeddings from {TEXT_EMBEDDINGS_FILE}...")
@@ -69,10 +72,12 @@ def safe_load_and_preprocess(path_tensor):
     try:
         img_bytes = tf.io.read_file(path)
         image = tf.io.decode_jpeg(img_bytes, channels=3)
-        if tf.shape(image)[0] == 0: raise ValueError("Empty image")
+        if tf.shape(image)[0] == 0:
+            raise ValueError("Empty image")
         image = tf.image.resize(image, IMAGE_SIZE)
         return tf.keras.applications.resnet50.preprocess_input(image)
-    except Exception: return tf.zeros((IMAGE_SIZE[0], IMAGE_SIZE[1], 3), dtype=tf.float32)
+    except Exception:
+        return tf.zeros((IMAGE_SIZE[0], IMAGE_SIZE[1], 3), dtype=tf.float32)
 
 def load_image_wrapper(path):
     return tf.py_function(safe_load_and_preprocess, [path], tf.float32)
@@ -101,7 +106,7 @@ def get_image_embeddings(df):
 
 def lgbm_smape(y_true, y_pred):
     """Custom SMAPE evaluation metric for LightGBM."""
-    # We are predicting log_price, so we need to convert back to original scale
+    # We are predicting log_price, so we need to convert back to original num_parallel_callsscale
     y_true_orig = np.expm1(y_true)
     y_pred_orig = np.expm1(y_pred)
 
