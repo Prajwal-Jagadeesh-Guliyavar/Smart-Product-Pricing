@@ -118,7 +118,7 @@ def main():
     # Ensure the script is run from the project root
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(project_root)
-    
+
     config = load_config()
 
     menu_options = {
@@ -136,7 +136,7 @@ def main():
         for key, (desc, _) in menu_options.items():
             print(f"{key}. {desc}")
         print("------------------------------------------")
-        
+
         choice = get_user_choice("Enter your choice", menu_options.keys())
         _, handler = menu_options[choice]
         handler(config)
